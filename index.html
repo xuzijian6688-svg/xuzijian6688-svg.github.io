@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Речевыевные причалыки Москвы - Платлатформа дляльная платформацияция о причinalных причалах Москвы</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <!-- Leaflet.js for interactive maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0284c7', // 主蓝色
+                        secondary: '#0ea5e9', // 次要蓝色
+                        accent: '#38bdf8', // 强调色
+                        dark: '#0c4a6e', // 深色
+                        light: '#e0f2fe', // 浅色
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .text-shadow-lg {
+                text-shadow: 0 4px 8px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08);
+            }
+            .bg-blur {
+                backdrop-filter: blur(8px);
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+        }
+    </style>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+            z-index: 1;
+        }
+        .custom-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #0284c7;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            border: 2px solid white;
+        }
+        .custom-marker.active {
+            background-color: #0ea5e9;
+            transform: scale(1.2);
+        }
+        .marker-pulse {
+            border-radius: 50%;
+            height: 14px;
+            width: 14px;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            margin: -7px 0 0 -7px;
+            z-index: -1;
+            box-shadow: 0 0 0 0 rgba(2, 132, 199, 0.4);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(2, 132, 199, 0.7);
+            }
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 10px rgba(2, 132, 199, 0);
+            }
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(2, 132, 199, 0);
+            }
+        }
+        .floating-card {
+            backdrop-filter: blur(10px);
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .dynamic-island {
+            backdrop-filter: blur(10px);
+            background-color: rgba(12, 74, 110, 0.8);
+            border-radius: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        .boat-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .boat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+        }
+        .route-path {
+            stroke-dasharray: 10;
+            animation: dash 30s linear infinite;
+        }
+        @keyframes dash {
+            to {
+                stroke-dashoffset: 1000;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 overflow-hidden">
+    <!-- Header Navigation -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-white bg-opacity-90 backdrop-blur-md shadow-md">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-ship text-primary text-2xl"></i>
+                <h1 class="text-xl font-bold text-dark">Речные причалы Москвы</h1>
+            </div>
+            <nav class="hidden md:flex items-center space-x-8">
+                <a href="#map-section" class="text-gray-700 hover:text-primary transition-colors">Карта</a>
+                <a href="#docks-section" class="text-gray-700 hover:text:text-primary transition-colors">Причалы
+                <a href="#boats-section" class="text-gray-700 hover:text-primary transition-colors">Лодки</a>
+                <a href="#ai-route-section" class="text-gray-700 hover:text-primary transition-colors">AI Маршрут</a>
+                <a href="#community-section" class="text-gray-700 hover:text-primary transition-colors">Сообщество</a>
+            </nav>
+            <div class="flex items-center space-x-4">
+                <button class="hidden md:block px-4 py-2 bg-primary text-white rounded-full hover:bg-secondary transition-colors">
+                    Войти/Регистрация
+                </button>
+                <button class="md:hidden text-gray-700" id="mobile-menu-button">
+                    <i class="fa fa-bars text-xl"></i>
+                </button>
+            </div>
+        </div>
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden bg-white shadow-lg absolute w-full">
+            <div class="container mx-auto px-4 py-3 flex flex-col space-y-3">
+                <a href="#map-section" class="text-gray-700 hover:text-primary transition-colors py-2">Карта</a>
+                <a href="#docks-section" class="text-gray-700 hover:text-primary transition-colors py-2">Причалы</a>
+                <a href="#boats-section" class="text-gray-700 hover:text-primary transition-colors py-2">Лодки</a>
+                <a href="#ai-route-section" class="text-gray-700 hover:text-primary transition-colors py-2">AI Маршрут</a>
+                <a href="#community-section" class="text-gray-700 hover:text-primary transition-colors py-2">Сообщество</a>
+                <button class="w-full px-4 py-2 bg-primary text-white rounded-full hover:bg-secondary transition-colors">
+                    Войти/Регистрация
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="pt-16">
+        <!-- Hero Section with Map -->
+        <section id="map-section" class="relative h-screen">
+            <div id="map"></div>
+            
+            <!-- Floating Search Panel -->
+            <div class="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 w-full max-w-2xl">
+                <div class="floating-card p-4">
+                    <div class="flex items-center space-x-2 mb-3">
+                        <i class="fa fa-search text-primary"></i>
+                        <h2 class="text-lg font-semibold text-dark">Поиск причалов и маршрутов</h2>
+                    </div>
+                    <div class="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
+                        <input type="text" placeholder="Отправление" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                        <input type="text" placeholder="Назначение" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                        <button class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors">
+                            <i class="fa fa-location-arrow mr-1"></i> Найти маршрут
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Floating Dock Info Panel -->
+            <div id="dock-info-panel" class="absolute bottom-24 right-4 z-40 w-full max-w-xs hidden">
+                <div class="floating-card p-4">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <h3 id="dock-name" class="text-lg font-semibold text-dark">Название причала</h3>
+                            <p id="dock-status" class="text-sm text-gray-600">Открыто</p>
+                        </div>
+                        <button id="close-dock-info" class="text-gray-500 hover:text-gray-700">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <p><i class="fa fa-map-marker text-primary mr-1"></i> <span id="dock-address">Адрес</span></p>
+                        <p><i class="fa fa-clock-o text-primary mr-1"></i> <span id="dock-hours">Время работы</span></p>
+                        <p><i class="fa fa-ship text-primary mr-1"></i> <span id="dock-capacity">Доступные лодки: 0</span></p>
+                        <p><i class="fa fa-users text-primary mr-1"></i> <span id="dock-occupancy">Занятость: 0%</span></p>
+                    </div>
+                    <div class="mt-4 flex space-x-2">
+                        <button class="flex-1 px-3 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors">
+                            Забронировать лодку
+                        </button>
+                        <button class="flex-1 px-3 py-2 border border-primary text-primary rounded-lg hover:bg-light transition-colors">
+                            Подробнее
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Docks Section -->
+        <section id="docks-section" class="py-16 bg-white">
+            <div class="container mx-auto px-4">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl font-bold text-dark mb-2">莫斯科主要码头</h2>
+                    <p class="text-gray-600 max-w-2xl mx-auto">探索莫斯科河沿岸的共享码头网络，提供便捷的船只租赁和水上交通服务</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <!-- Dock Card 1 -->
+                    <div class="floating-card overflow-hidden">
+                        <img src="https://p11-doubao-search-sign.byteimg.com/tos-cn-i-be4g95zd3a/1034094061824639061~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1776952440&x-signature=KgDgzXByN%2B%2FDOHd0dVcmdyWDkL0%3D" alt="Северной речной вокзал" class="w-full h-48 object-cover">
+                        <div class="p-6">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-xl font-semibold text-dark">Северный речной вокзал</h3>
+                                <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Открыто</span>
+                            </div>
+                            <p class="text-gray-600 text-sm mb-4">Один из главныхх пассажичных пассажичных вокзалов Москвы, построенный в 1937 году, является основным узлом для дальних и междугородних航线.</p>
+                            <div class="flex flex-wrap gap-2 mb-4">
+                                <span class="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded
+ull">Круглосуточно</span>
+                                <span class="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full">Питровые заведения</span>
+                                <span class="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full">WiFi</span>
+                                <span class="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full">Парковка</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-500"><i class="fa fa-map-marker text-primary mr-1"></i> Ленинградское шоссе, 51</span>
+                                <button class="px-3 py-1 bg-primaryary text-white text-sm rounded-lg hover:bg-secondary transition-colors">
+                                    Подробнее
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Dock Card 2 -->
+                    <div class="floating-card overflow-hidden">
+                        <img src="https://p11-doubao-search-sign.byteimg.com/tos-cn-i-be4g95zd3a/1073870741900099741~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1776952440&x-signature=uzBuDv6Q2uH6PAVy7vhi8e%2FJFXk%3D" alt="高尔基公园码头" class="w-full h-48 object-cover">
+                        <div class="p-6">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-xl font-semibold text-dark">Причал Парка Горького</h3>
+                                <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Открыто</span>
+                            </div>
+                            <p class="text-gray-600 text-sm mb-4">Популярный причал в центре Москвы, предлагающий аренду лодок и экскурсионные круизы, расположенный рядом с многими достопримечательностями.</p>
+                            <div class="flex flex-wrap gap-2 mb-4">
+                                <span class="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full">10:00-21:00</span>
+                                <span class="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full">Аренда лодок</span>
+                                <span class="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full">Кафе</span>
+                                <span class="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full">Товары сувениры</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-500"><i class="fa fa-map-marker text-primary mr-1"></i> Крымский вал, 9</span>
+                                <button class="px-3 py-1 bg-primary text-white text-sm rounded-lg hover:bg-secondary transition-colors">
+                                    Подробнее
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Dock Card 3 -->
+                    <div class="floating-card overflow-hidden">
+                        <img src="https://p11-doubao-search-sign.byteimg.com/tos-cn-i-be4g95zd3a/1017518494634606631~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1776952440&x-signature=eNisPnKFxtHm77RO7LOYvP6WnuM%3D" alt="Причал отеля Украина" class="w-full h-48 object-cover">
+                        <div class="p-6">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-xl font-semibold text-dark">Причал отеля Украина</h3>
+                                <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Открыто</span>
+                            </div>
+                            <p class="text-gray-600 text-sm mb-4">Роскошный причал на берегу Москвы-реки, предлагающий премиальные круизные услуги и аренду личных яхт.</p>
+                            <div class="flex flex-wrap gap-2 mb-4">
+                                <span class="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full">12:00-21:00</span>
+                                <span class="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full">Роскошные круизы</span>
+                                <span class="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full">Ресторан</span>
+                                <span class="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full">Частные мероприятия</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-500"><i class="fa fa-map-marker text-primary mr-1"></i> Набережная Тараса Шевченко</span>
+                                <button class="px-3 py-1 bg-primary text-white text-sm rounded-lg hover:bg-secondary transition-colors">
+                                    Подробнее
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-10">
+                    <button class="px-6 py-3 bg-white border border-primary text-primary rounded-full hover:bg-light transition-colors">
+                        查看全部码头 <i class="fa fa-arrow-right ml-1"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Boats Section -->
+        <section id="boats-section" class="py-16 bg-gray-50">
+            <div class="container mx-auto px-4">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl font-bold text-dark mb-2">Услуги совместного использования лодок</h2>
+                    <p class="text-gray-600 max-w-2xl mx-auto">Выберите лодку, соответствующую вашим потребностям, и легко исследуйте прекрасные виды Москвы-реки</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <!-- Boat Card 1 -->
+                    <div class="boat-card floating-card overflow-hidden">
+                        <img src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/59b644f77c9643d087d6f77b1032f003~tplv-a9rns2rl98-image.image?rcl=20251025215342F0ADCE58504B4C1DF860&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1763992468&x-signature=CR%2FErNioYX5F0dkon7s%2BSqsqKjE%3D" alt="Круизер на Москве-реке" class="w-full h-40 object-cover">
+                        <div class="p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="text-lg font-semibold text-dark">Круизер Москва-река</h3>
+                                <span class="text-primary font-bold">2 500₽/час</span>
+                            </div>
+                            <div class="flex items-center text-sm text-gray-500 mb-3">
+                                <span class="mr-3"><i class="fa fa-users mr-1"></i> 8 человек</span>
+                                <span class="mr-3"><i class="fa fa-tachometer mr-1"></i> 25км/ч</span>
+                                <span><i class="fa fa-battery-full mr-1"></i> 8 часов</span>
+                            </div>
+                            <p class="text-gray-600 text-sm mb-4">Удобный экскурсионный круизер с панорамными окнами и зоной отдыха, идеально подходит для семей и групп.</p>
+                            <button class="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors">
+                                Забронировать сейчас
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Boat Card 2 -->
+                    <div class="boat-card floating-card overflow-hidden">
+                        <img src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/59b644f77c9643d087d6f77b1032f003~tplv-a9rns2rl98-image.image?rcl=20251025215342F0ADCE58504B4C1DF860&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1763992468&x-signature=CR%2FErNioYX5F0dkon7s%2BSqsqKjE%3D" alt="Каяк Святой Василия" class="w-full h-40 object-cover">
+                        <div class="p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="text-lg font-semibold text-dark">Каяк Святой Василия</h3>
+                                <span class="text-primary font-bold">500₽/час</span>
+                            </div>
+                            <div class="flex items-center text-sm text-gray-500 mb-3">
+                                <span class="mr-3"><i class="fa fa-users mr-1"></i> 2 человека</span>
+                                <span class="mr-3"><i class="fa fa-tachometer mr-1"></i> 8км/ч</span>
+                                <span><i class="fa fa-battery-full mr-1"></i> Безлимитно</span>
+                            </div>
+                            <p class="text-gray-600 text-sm mb-4">Гибкий и лёгкий каяк, идеально подходит для пары или друзей, желающих исследовать скрытые уголки Москвы-реки.</p>
+                            <button class="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors">
+                                Забронировать сейчас
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Boat Card 3 -->
+                    <div class="boat-card floating-card overflow-hidden">
+                        <img src="https://p11-doubao-search-sign.byteimg.com/tos-cn-i-be4g95zd3a/1017518494634606631~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1776952440&x-signature=eNisPnKFxtHm77RO7LOYvP6WnuM%3D" alt="Московский водный автобус" class="w-full h-40 object-cover">
+                        <div class="p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="text-lg font-semibold text-dark">Водный автобус Москва</h3>
+                                <span class="text-primary font-bold">1 200₽/человек</span>
+                            </div>
+                            <div class="flex items-center text-sm text-gray-500 mb-3">
+                                <span class="mr-3"><i class="fa fa-users mr-1"></i> 44 человека</span>
+                                <span class="mr-3"><i class="fa fa-tachometer mr-1"></i> 15км/ч</span>
+                                <span><i class="fa fa-clock-o mr-1"></i> 1 час</span>
+                            </div>
+                            <p class="text-gray-600 text-sm mb-4">Регулярный экскурсионный автобус с гидрослужебной обслуживанием, предоставляющий экскурсии по основным достопримечательностям на берегу Москвы-реки.</p>
+                            <button class="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors">
+                                Забронировать сейчас
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Boat Card 4 -->
+                    <div class="boat-card floating-card overflow-hidden">
+                        <img src="https://p3-doubao-search-sign.byteimg.com/tos-cn-i-be4g95zd3a/1055032826250526771~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1776952440&x-signature=KI%2FO4OYPSVGyYQRSVvKwx5N8bpg%3D" alt="Романтическая яхта" class="w-full h-40 object-cover">
+                        <div class="p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="text-lg font-semibold text-dark">Романтическая яхта</h3>
+                                <span class="text-primary font-bold">5 000₽/час</span>
+                            </div>
+                            <div class="flex items-center text-sm text-gray-500 mb-3">
+                                <span class="mr-3"><i class="fa fa-users mr-1"></i> 4 человека</span>
+                                <span class="mr-3"><i class="fa fa-tachometer mr-1"></i> 20км/ч</span>
+                                <span><i class="fa fa-battery-full mr-1"></i> 6 часов</span>
+                            </div>
+                            <p class="text-gray-600 text-sm mb-4">Роскошная личная яхта с премиальной аудиосистемой и шампанским обслуживанием, идеально подходит для особых случаев.</p>
+                            <button class="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors">
+                                Забронировать сейчас
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-10">
+                    <button class="px-6 py-3 bg-white border border-primary text-primary rounded-full hover:bg-light transition-colors">
+                        查看全部船只 <i class="fa fa-arrow-right ml-1"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- AI Route Planning Section -->
+        <section id="ai-route-section" class="py-16 bg-white">
+            <div class="container mx-auto px-4">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl font-bold text-dark mb-2">AI Интеллектуальное планирование маршрута</h2>
+                    <p class="text-gray-600 max-w-2xl mx-auto">Рекомендуем оптимальный маршрут плавания на основе погоды, течения и предпочтений пользователя</p>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                    <div>
+                        <img src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/388e48ae08cb4796b2d257b847e0d955~tplv-a9rns2rl98-image.image?rcl=20251025215342F0ADCE58504B4C1DF860&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1763992467&x-signature=GpHvlrf%2Ff2YVk4LMEI%2F8BYQ1Gs4%3D" alt="AI Планирование маршрута" class="w-full rounded-xl shadow-lg">
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-2xl font-semibold text-dark mb-4">Интеллектуальное предложение маршрута</h3>
+                        <p class="text-gray-600 mb-6">Наша AI система анализирует реальные данные о погоде, течении и исторические записи плаваний, чтобы предложить вам наиболее безопасный и эффективный маршрут плавания.</p>
+                        
+                        <div class="space-y-6">
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white">
+                                    <i class="fa fa-cloud"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <h4 class="text-lg font-medium text-dark">Анализ погоды</h4>
+                                    <p class="text-gray-600">Корректировка маршрута на основе реальных данных о погоде, избегание зон с тяжелой погодой</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white">
+                                    <i class="fa fa-tint"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <h4 class="text-lg font-medium text-dark">Анализ течения</h4>
+                                    <p class="text-gray-600">Учитывание скорости и направления течения, оптимизация времени плавания и энергопотребления</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white">
+                                    <i class="fa fa-heart"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <h4 class="text-lg font-medium text-dark">Персонализированные рекомендации</h4>
+                                    <p class="text-gray-600">Рекомендация наиболее подходящего маршрута на основе ваших предпочтений и истории плаваний</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-8">
+                            <button class="px-6 py-3 bg-primary text-white rounded-full hover:bg-secondary transition-colors">
+                                Начать планирование маршрута <i class="fa fa-arrow-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Route Planning Form -->
+                <div class="mt-16 floating-card p-6">
+                    <h3 class="text-xl font-semibold text-dark mb-6">Создайте ваш маршрут</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-2" for="start-point">
+                                Отправление
+                            </label>
+                            <select class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                                <option value="">Выберите причал</option>
+                                <option value="north-river">Северный речной вокзал</option>
+                                <option value="gorky-park">Причал Парка Горького</option>
+                                <option value="ukraine-hotel">Причал отеля Украина</option>
+                                <option value="novospassky">Причал Новоспасского монастыря</option>
+                                <option value="sparrow-hill">Причал Воробьёвых гор</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-2" for="end-point">
+                                Назначение
+                            </label>
+                            <select class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                                <option value="">Выберите причал</option>
+                                <option value="north-river">Северный речной вокзал</option>
+                                <option value="gorky-park">Причал Парка Горького</option>
+                                <option value="ukraine-hotel">Причал отеля Украина</option>
+                                <option value="novospassky">Причал Новоспасского монастыря</option>
+                                <option value="sparrow-hill">Причал Воробьёвых гор</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-2" for="date">
+                                Дата
+                            </label>
+                            <input type="date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-2" for="time">
+                                Время
+                            </label>
+                            <input type="time" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-gray-700 text-sm font-medium mb-2" for="boat-type">
+                                Тип лодки
+                            </label>
+                            <select class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
+                                <option value="">Выберите тип лодки</option>
+                                <option value="cruiser">Экскурсионный круизер</option>
+                                <option value="kayak">Каяк</option>
+                                <option value="water-bus">Водный автобус</option>
+                                <option value="yacht">Личная яхта</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label class="block text-gray-700 text-sm font-medium mb-2">
+                            Предпочтения по маршруту
+                        </label>
+                        <div class="flex flex-wrap gap-4">
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" class="form-checkbox text-primary">
+                                <span class="ml-2 text-gray-700">Кратчайший маршрут</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" class="form-checkbox text-primary">
+                                <span class="ml-2 text-gray-700">Пейзажные виды</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" class="form-checkbox text-primary">
+                                <span class="ml-2 text-gray-700">Исторические места</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" class="form-checkbox text-primary">
+                                <span class="ml-2 text-gray-700">Тихие районы</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" class="form-checkbox text-primary">
+                                <span class="ml-2 text-gray-700">Питание</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button class="px-6 py-3 bg-primary text-white rounded-full hover:bg-secondary transition-colors">
+                            Сгенерировать маршрут <i class="fa fa-magic ml-1"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Community Section -->
+        <section id="community-section" class="py-16 bg-gray-50">
+            <div class="container mx-auto px-4">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl font-bold text-dark mb-2">Сообщество пользователей</h2>
+                    <p class="text-gray-600 max-w-2xl mx-auto">Поделитесь своими впечатлениями от водных активностей и откройте для себя精彩ные моменты на Москве-реке</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <!-- Community Post 1 -->
+                    <div class="floating-card overflow-hidden">
+                        <img src="https://p3-doubao-search-sign.byteimg.com/tos-cn-i-be4g95zd3a/1055032826250526771~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1776952440&x-signature=KI%2FO4OYPSVGyYQRSVvKwx5N8bpg%3D" alt="Закат на Москве-реке" class="w-full h-48 object-cover">
+                        <div class="p-6">
+                            <div class="flex items-center mb-4">
+                                <div class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
+                                    <i class="fa fa-user text-gray-500"></i>
+                                </div>
+                                <div class="ml-3">
+                                    <h4 class="font-medium text-dark">Анна Петрова</h4>
+                                    <p class="text-xs text-gray-500">2 часа назад</p>
+                                </div>
+                            </div>
+                            <h3 class="text-lg font-semibold text-dark mb-2">绝美ный закат на Москве-реке</h3>
+                            <p class="text-gray-600 text-sm mb-4">Вчера арендовал каяк на Северном речном вокзале и наслаждался потрясающим видом заката на Москве-реке.强烈推荐这个体验！</p>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-4">
+                                    <button class="flex items-center text-gray-500 hover:text-primary">
+                                        <i class="fa fa-heart-o mr-1"></i> <span>48</span>
+                                    </button>
+                                    <button class="flex items-center text-gray-500 hover:text-primary">
+                                        <i class="fa fa-comment-o mr-1"></i> <span>12</span>
+                                    </button>
+                                </div>
+                                <button class="text-primary hover:text-secondary">
+                                    <i class="fa fa-share-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Community Post 2 -->
+                    <div class="floating-card overflow-hidden">
+                        <img src="https://p11-doubao-search-sign.byteimg.com/tos-cn-i-be4g95zd3a/909597519852601529~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1776952440&x-signature=sZK9KdcBAskRK88k2fNfDI0CUJk%3D" alt="Вид на Кремль" class="w-full h-48 object-cover">
+                        <div class="p-6">
+                            <div class="flex items-center mb-4">
+                                <div class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
+                                    <i class="fa fa-user text-gray-500"></i>
+                                </div>
+                                <div class="ml-3">
+                                    <h4 class="font-medium text-dark">Михаил Иванов</h4>
+                                    <p class="text-xs text-gray-500">Вчера</p>
+                                </div>
+                            </div>
+                            <h3 class="text-lg font-semibold text-dark mb-2">Вид на Кремль с воды</h3>
+                            <p class="text-gray-600 text-sm mb-4">Провел экскурсию на водном автобусе,欣赏克里姆林宫 с Москвы-реки - это совершенно новый опыт. Объяснения гида были非常精彩！</p>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-4">
+                                    <button class="flex items-center text-gray-500 hover:text-primary">
+                                        <i class="fa fa-heart-o mr-1"></i> <span>76</span>
+                                    </button>
+                                    <button class="flex items-center text-gray-500 hover:text-primary">
+                                        <i class="fa fa-comment-o mr-1"></i> <span>24</span>
+                                    </button>
+                                </div>
+                                <button class="text-primary hover:text-secondary">
+                                    <i class="fa fa-share-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Community Post 3 -->
+                    <div class="floating-card overflow-hidden">
+                        <img src="https://p11-doubao-search-sign.byteimg.com/tos-cn-i-be4g95zd3a/1034094061824639061~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1776952440&x-signature=KgDgzXByN%2B%2FDOHd0dVcmdyWDkL0%3D" alt="Причал ночью" class="w-full h-48 object-cover">
+                        <div class="p-6">
+                            <div class="flex items-center mb-4">
+                                <div class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
+                                    <i class="fa fa-user text-gray-500"></i>
+                                </div>
+                                <div class="ml-3">
+                                    <h4 class="font-medium text-dark">Софья Смирнова</h4>
+                                    <p class="text-xs text-gray-500">3 дня назад</p>
+                                </div>
+                            </div>
+                            <h3 class="text-lg font-semibold text-dark mb-2">Вечерний круиз</h3>
+                            <p class="text-gray-600 text-sm mb-4">В выходные参加了 вечерний круиз, огни по обеим берегам Москвы-реки были非常美丽. Ужин на борту также был вкусным, это незабываемый опыт！</p>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-4">
+                                    <button class="flex items-center text-gray-500 hover:text-primary">
+                                        <i class="fa fa-heart-o mr-1"></i> <span>63</span>
+                                    </button>
+                                    <button class="flex items-center text-gray-500 hover:text-primary">
+                                        <i class="fa fa-comment-o mr-1"></i> <span>18</span>
+                                    </button>
+                                </div>
+                                <button class="text-primary hover:text-secondary">
+                                    <i class="fa fa-share-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-10">
+                    <button class="px-6 py-3 bg-white border border-primary text-primary rounded-full hover:bg-light transition-colors">
+                        查看更多内容 <i class="fa fa-arrow-right ml-1"></i>
+                    </button>
+                </div>
+                
+                <!-- Upcoming Events -->
+                <div class="mt-16">
+                    <h3 class="text-2xl font-semibold text-dark mb-6 text-center">Предстоящие мероприятия</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Event Card 1 -->
+                        <div class="floating-card overflow-hidden">
+                            <div class="relative">
+                                <img src="https://p11-doubao-search-sign.byteimg.com/mosaic-legacy/1592000019fb2ed9dec8~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1776952440&x-signature=vRsx5atATJoSzuLiUmR8WM53NPo%3D" alt="Гребельные состязания" class="w-full h-48 object-cover">
+                                <div class="absolute top-2 right-2 bg-primary text-white text-xs px-2 py-1 rounded-full">
+                                    15 июня
+                                </div>
+                            </div>
+                            <div class="p-6">
+                                <h4 class="text-lg font-semibold text-dark mb-2">莫斯科河龙舟节</h4>
+                                <p class="text-gray-600 text-sm mb-4">一年一度的莫斯科河龙舟比赛，欢迎所有水上运动爱好者参加。比赛分为多个组别，还有精彩的岸上活动。</p>
+                                <div class="flex items-center text-sm text-gray-500 mb-4">
+                                    <span class="mr-4"><i class="fa fa-map-marker text-primary mr-1"></i> 高尔基公园码头</span>
+                                    <span><i class="fa fa-clock-o text-primary mr-1"></i> 10:00-18:00</span>
+                                </div>
+                                <button class="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors">
+                                    报名参加
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Event Card 2 -->
+                        <div class="floating-card overflow-hidden">
+                            <div class="relative">
+                                <img src="https://p11-doubao-search-sign.byteimg.com/labis/90b0b1fb9c551bbdc96594c2a41ab309~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1776952440&x-signature=XWTZBDyfGM0Hq6ZeRhy4iYWfiCM%3D" alt="Водное выступление" class="w-full h-48 object-cover">
+                                <div class="absolute top-2 right-2 bg-primary text-white text-xs px-2 py-1 rounded-full">
+                                    8 июля
+                                </div>
+                            </div>
+                            <div class="p-6">
+                                <h4 class="text-lg font-semibold text-dark mb-2">水上芭蕾表演</h4>
+                                <p class="text-gray-600 text-sm mb-4">俄罗斯国家花样游泳队将在莫斯科河上进行精彩的水上芭蕾表演，这是一场不容错过的视觉盛宴。</p>
+                                <div class="flex items-center text-sm text-gray-500 mb-4">
+                                    <span class="mr-4"><i class="fa fa-map-marker text-primary mr-1"></i> 乌克兰酒店码头</span>
+                                    <span><i class="fa fa-clock-o text-primary mr-1"></i> 18:00-20:00</span>
+                                </div>
+                                <button class="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors">
+                                    获取门票
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Event Card 3 -->
+                        <div class="floating-card overflow-hidden">
+                            <div class="relative">
+                                <img src="https://p11-doubao-search-sign.byteimg.com/labis/b27747d32dbb8f3db267b6e570212abf~tplv-be4g95zd3a-image.jpeg?rk3s=542c0f93&x-expires=1776952440&x-signature=aidiLpvEaCE8cQCNmSzUMPOqqNs%3D" alt="Водный парк" class="w-full h-48 object-cover">
+                                <div class="absolute top-2 right-2 bg-primary text-white text-xs px-2 py-1 rounded-full">
+                                    20 августа
+                                </div>
+                            </div>
+                            <div class="p-6">
+                                <h4 class="text-lg font-semibold text-dark mb-2">莫斯科水上嘉年华</h4>
+                                <p class="text-gray-600 text-sm mb-4">为期一天的水上嘉年华活动，包括水上滑梯、皮划艇比赛、水上音乐表演等多种娱乐项目，适合全家参与。</p>
+                                <div class="flex items-center text-sm text-gray-500 mb-4">
+                                    <span class="mr-4"><i class="fa fa-map-marker text-primary mr-1"></i> 北河码头</span>
+                                    <span><i class="fa fa-clock-o text-primary mr-1"></i> 11:00-19:00</span>
+                                </div>
+                                <button class="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors">
+                                    了解详情
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white py-12">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center space-x-2 mb-6">
+                        <i class="fa fa-ship text-accent text-2xl"></i>
+                        <h3 class="text-xl font-bold">Речные причалы Москвы</h3>
+                    </div>
+                    <p class="text-gray-400 mb-6">Предоставляет реальную информацию о совместных причалах на Москве-реке, услуги бронирования и платформу для взаимодействия сообщества,促进 удобства водного транспорта и отдыха.</p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fa fa-facebook"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fa fa-twitter"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fa fa-instagram"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fa fa-vk"></i>
+                        </a>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 class="text-lg font-semibold mb-6">Быстрые ссылки</h4>
+                    <ul class="space-y-3">
+                        <li><a href="#map-section" class="text-gray-400 hover:text-white transition-colors">Карта</a></li>
+                        <li><a href="#docks-section" class="text-gray-400 hover:text-white transition-colors">Причалы</a></li>
+                        <li><a href="#boats-section" class="text-gray-400 hover:text-white transition-colors">Лодки</a></li>
+                        <li><a href="#ai-route-section" class="text-gray-400 hover:text-white transition-colors">AI Маршрут</a></li>
+                        <li><a href="#community-section" class="text-gray-400 hover:text-white transition-colors">Сообщество</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h4 class="text-lg font-semibold mb-6">Контакты</h4>
+                    <ul class="space-y-3">
+                        <li class="flex items-start">
+                            <i class="fa fa-map-marker text-accent mt-1 mr-3"></i>
+                            <span class="text-gray-400">Москва, Ленинградское шоссе, 51</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fa fa-phone text-accent mt-1 mr-3"></i>
+                            <span class="text-gray-400">+7 (495) 123-45-67</span>
+                        </li>
+                        <li class="flex items-start">
+                            <i class="fa fa-envelope text-accent mt-1 mr-3"></i>
+                            <span class="text-gray-400">info@moscowriverdocks.ru</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h4 class="text-lg font-semibold mb-6">Подпишитесь на нашу рассылку</h4>
+                    <p class="text-gray-400 mb-4">Подпишитесь на нашу рассылку, чтобы получать актуальную информацию о причалах, мероприятиях и скидках.</p>
+                    <form class="flex">
+                        <input type="email" placeholder="Ваш email" class="px-4 py-2 rounded-l-lg focus:outline-none flex-1">
+                        <button type="submit" class="px-4 py-2 bg-primary text-white rounded-r-lg hover:bg-secondary transition-colors">
+                            Подписаться
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-700 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
+                <p class="text-gray-400 text-sm mb-4 md:mb-0">© 2025 Речные причалы Москвы. Все права защищены.</p>
+                <div class="flex space-x-6">
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">Политика конфиденциальности</a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">Условия использования</a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors text-sm">Политика Cookie</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Dynamic Island -->
+    <div class="fixed bottom-8 left-0 right-0 flex justify-center z-50 transition-transform duration-500" id="dynamic-island-container">
+        <div class="flex items-center justify-between px-6 py-3 rounded-full bg-[rgba(12,74,110,0.8)] backdrop-blur-md transition-all duration-300" id="dynamic-island">
+            <span class="text-white mr-3 transition-all duration-300" id="island-text">Исследуйте Москву-реку</span>
+            <div class="flex items-center justify-center w-6 h-6 rounded-full bg-accent text-white transition-all duration-300">
+                <i class="fa fa-arrow-up"></i>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mobile Menu Toggle
+        document.getElementById('mobile-menu-button').addEventListener('click', function() {
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenu.classList.toggle('hidden');
+        });
+        
+        // Dynamic Island Functionality
+        const islandContainer = document.getElementById('dynamic-island-container');
+        const islandText = document.getElementById('island-text');
+        const island = document.getElementById('dynamic-island');
+        
+        function updateIsland(newText) {
+            islandText.style.opacity = '0';
+            islandText.style.transform = 'scale(0.8)';
+            
+            setTimeout(() => {
+                islandText.textContent = newText;
+                islandText.style.opacity = '1';
+                islandText.style.transform = 'scale(1)';
+                
+                const baseWidth = 120;
+                const textWidth = islandText.offsetWidth;
+                island.style.width = `${Math.max(baseWidth, textWidth + 70)}px`;
+            }, 300);
+        }
+        
+        // Update island on scroll
+        window.addEventListener('scroll', () => {
+            const scrollPosition = window.scrollY;
+            const windowHeight = window.innerHeight;
+            
+            const sections = [
+                { id: 'map-section', text: 'Исследуйте Москву-реку' },
+                { id: 'docks-section', text: 'Откройте для себя причалы' },
+                { id: 'boats-section', text: 'Выберите лодку' },
+                { id: 'ai-route-section', text: 'AI Планирование маршрута' },
+                { id: 'community-section', text: 'Присоединиться к сообществу' }
+            ];
+            
+            for (const section of sections) {
+                const element = document.getElementById(section.id);
+                if (element) {
+                    const rect = element.getBoundingClientRect();
+                    if (rect.top <= windowHeight/2 && rect.bottom >= windowHeight/2) {
+                        updateIsland(section.text);
+                        break;
+                    }
+                }
+            }
+        });
+        
+        // Initialize Map
+        function initMap() {
+            // Moscow coordinates
+            const moscow = [55.7558, 37.6173];
+            
+            // Create map
+            const map = L.map('map').setView(moscow, 12);
+            
+            // Add tile layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            // Dock locations
+            const docks = [
+                {
+                    id: 'north-river',
+                    name: 'Северный речной вокзал',
+                    coordinates: [55.8126, 37.5831],
+                    address: 'Ленинградское шоссе, 51',
+                    hours: 'Круглосуточно',
+                    capacity: 25,
+                    available: 18,
+                    occupancy: 28
+                },
+                {
+                    id: 'gorky-park',
+                    name: 'Причал Парка Горького',
+                    coordinates: [55.7372, 37.5940],
+                    address: 'Крымский вал, 9',
+                    hours: '10:00-21:00',
+                    capacity: 15,
+                    available: 7,
+                    occupancy: 53
+                },
+                {
+                    id: 'ukraine-hotel',
+                    name: 'Причал отеля Украина',
+                    coordinates: [55.7532, 37.5674],
+                    address: 'Набережная Тараса Шевченко',
+                    hours: '12:00-21:00',
+                    capacity: 20,
+                    available: 12,
+                    occupancy: 40
+                },
+                {
+                    id: 'novospassky',
+                    name: 'Причал Новоспасского монастыря',
+                    coordinates: [55.7326, 37.5892],
+                    address: 'Набережная Новоспасского монастыря',
+                    hours: '09:00-20:00',
+                    capacity: 10,
+                    available: 3,
+                    occupancy: 70
+                },
+                {
+                    id: 'sparrow-hill',
+                    name: 'Причал Воробьёвых гор',
+                    coordinates: [55.7174, 37.5866],
+                    address: 'Набережная Воробьёвых гор',
+                    hours: '10:00-19:00',
+                    capacity: 8,
+                    available: 5,
+                    occupancy: 37
+                }
+            ];
+            
+            // Add dock markers
+            docks.forEach(dock => {
+                // Create custom marker
+                const markerHtml = `
+                    <div class="custom-marker">
+                        <i class="fa fa-anchor"></i>
+                        <div class="marker-pulse"></div>
+                    </div>
+                `;
+                
+                const icon = L.divIcon({
+                    html: markerHtml,
+                    className: 'custom-marker-container',
+                    iconSize: [36, 36],
+                    iconAnchor: [18, 18]
+                });
+                
+                // Create marker
+                const marker = L.marker(dock.coordinates, { icon: icon }).addTo(map);
+                
+                // Add click event
+                marker.on('click', () => {
+                    // Show dock info panel
+                    document.getElementById('dock-name').textContent = dock.name;
+                    document.getElementById('dock-address').textContent = dock.address;
+                    document.getElementById('dock-hours').textContent = dock.hours;
+                    document.getElementById('dock-capacity').textContent = `Доступные лодки: ${dock.available}/${dock.capacity}`;
+                    document.getElementById('dock-occupancy').textContent = `Занятость: ${dock.occupancy}%`;
+                    
+                    document.getElementById('dock-info-panel').classList.remove('hidden');
+                    
+                    // Highlight active marker
+                    document.querySelectorAll('.custom-marker').forEach(m => {
+                        m.classList.remove('active');
+                    });
+                    marker._icon.querySelector('.custom-marker').classList.add('active');
+                });
+            });
+            
+            // Close dock info panel
+            document.getElementById('close-dock-info').addEventListener('click', () => {
+                document.getElementById('dock-info-panel').classList.add('hidden');
+                
+                // Remove active marker highlight
+                document.querySelectorAll('.custom-marker').forEach(m => {
+                    m.classList.remove('active');
+                });
+            });
+            
+            // Add river route
+            const riverRoute = [
+                [55.8126, 37.5831], // North River Terminal
+                [55.7850, 37.5750],
+                [55.7650, 37.5700],
+                [55.7532, 37.5674], // Ukraine Hotel
+                [55.7450, 37.5750],
+                [55.7372, 37.5940], // Gorky Park
+                [55.7326, 37.5892], // Novospassky
+                [55.7250, 37.5870],
+                [55.7174, 37.5866]  // Sparrow Hill
+            ];
+            
+            L.polyline(riverRoute, {
+                color: '#0284c7',
+                weight: 4,
+                opacity: 0.7,
+                dashArray: '10, 10',
+                className: 'route-path'
+            }).addTo(map);
+        }
+        
+        // Initialize map when page loads
+        window.addEventListener('load', initMap);
+        
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                const targetId = this.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+                
+                if (targetElement) {
+                    window.scrollTo({
+                        top: targetElement.offsetTop - 80,
+                        behavior: 'smooth'
+                    });
+                    
+                    // Close mobile menu if open
+                    document.getElementById('mobile-menu').classList.add('hidden');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
